@@ -1,0 +1,4 @@
+Leo Garcia
+
+* removed everything from raylib-5.0 that is not in the src directory
+* removed other build systems (cmake and zig)

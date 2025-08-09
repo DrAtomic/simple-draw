@@ -1,0 +1,6 @@
+*.o
+*.so
+*.a
+draw
+.cache
+compile_commands.json
