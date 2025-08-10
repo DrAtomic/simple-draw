@@ -23,6 +23,7 @@ typedef union {
 typedef struct brush {
 	brush_kind kind;
 	brush_data b_data;
+	// todo(leo): make a draw function ptr
 } brush;
 
 typedef struct circular_buffer {
@@ -33,6 +34,7 @@ typedef struct circular_buffer {
 typedef struct {
 	Camera2D camera;
 	circular_buffer recs;
+	brush_kind mode;
 } Plug;
 
 typedef void (*plug_init_t) (Plug *plug);

@@ -60,9 +60,13 @@ void plug_update(Plug *plug)
 {
 	Vector2 mouse_pos = GetMousePosition();
 	Vector2 mouse_2d_pos = GetScreenToWorld2D(GetMousePosition(), plug->camera);
-	bool circ_mode = false;
 	mouse_stuff(plug, &mouse_pos, &mouse_2d_pos);
 
+	if (IsKeyPressed(KEY_R)) {
+		plug->mode = RECTANGLE;
+	} else if (IsKeyPressed(KEY_C)) {
+		plug->mode = CIRCLE;
+	}
 	BeginDrawing();
 	{
 		ClearBackground(GetColor(0x151515FF));
@@ -71,7 +75,7 @@ void plug_update(Plug *plug)
 		{
 			if (IsMouseButtonDown(MOUSE_LEFT_BUTTON)) {
 				brush b = {};
-				if (circ_mode == false) {
+				if (plug->mode == RECTANGLE) {
 					Rectangle rec = {
 						.height = 10,
 						.width = 10,
@@ -79,7 +83,7 @@ void plug_update(Plug *plug)
 						.y = mouse_2d_pos.y,
 					};
 					b = (brush) {.kind = RECTANGLE, .b_data.rec = rec};
-				} else if (circ_mode == true) {
+				} else if (plug->mode == CIRCLE) {
 					Circle circ = {
 						.center = mouse_2d_pos,
 						.radius = 5,
