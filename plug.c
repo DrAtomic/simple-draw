@@ -2,12 +2,12 @@
 #include "raylib.h"
 #include "raymath.h"
 
-#define REC_SIZE 10000
+#define ENTITY_SIZE 10000
 
 void plug_init(Plug *plug)
 {
 	plug->camera = (Camera2D){0};
-	hbb_circular_buffer_init(&plug->recs, REC_SIZE);
+	hbb_circular_buffer_init(&plug->brushes, ENTITY_SIZE);
 	plug->camera.zoom = 1.0f;
 }
 
@@ -43,17 +43,23 @@ static void mouse_stuff(Plug *plug, Vector2 *mouse_pos, Vector2 *mouse_2d_pos)
 	}
 }
 
-void draw_all_recs(circular_buffer *buff)
+static void draw_all_brushes(circular_buffer *buff)
 {
 	for (size_t i = 0; i < buff->h.current_count; i++) {
-		if (buff->data[i].kind == RECTANGLE) {
-			Rectangle rec = buff->data[i].b_data.rec;
-			DrawRectangleRec(rec, SKYBLUE);
-		} else if (buff->data[i].kind == CIRCLE) {
-			Circle circ = buff->data[i].b_data.circ;
-			DrawCircleV(circ.center, circ.radius, RED);
-		}
+		buff->data[i].draw_brush(&buff->data[i].b_data);
 	}
+}
+
+static void draw_rec(brush_data *b)
+{
+	Rectangle rec = b->rec;
+	DrawRectangleRec(rec, SKYBLUE);
+}
+
+static void draw_circ(brush_data *b)
+{
+	Circle circ = b->circ;
+	DrawCircleV(circ.center, circ.radius, RED);
 }
 
 void plug_update(Plug *plug)
@@ -82,20 +88,20 @@ void plug_update(Plug *plug)
 						.x = mouse_2d_pos.x,
 						.y = mouse_2d_pos.y,
 					};
-					b = (brush) {.kind = RECTANGLE, .b_data.rec = rec};
+					b = (brush) {.kind = RECTANGLE, .b_data.rec = rec, .draw_brush = &draw_rec};
 				} else if (plug->mode == CIRCLE) {
 					Circle circ = {
 						.center = mouse_2d_pos,
 						.radius = 5,
 					};
-					b = (brush) {.kind = CIRCLE, .b_data.circ = circ};
+					b = (brush) {.kind = CIRCLE, .b_data.circ = circ, .draw_brush = &draw_circ};
 				}
-				hbb_circular_buffer_push(&plug->recs, b);
+				hbb_circular_buffer_push(&plug->brushes, b);
 			}
-			draw_all_recs(&plug->recs);
+			draw_all_brushes(&plug->brushes);
 
 			if (IsKeyPressed(KEY_D))
-				hbb_circular_buffer_reset(&plug->recs);
+				hbb_circular_buffer_reset(&plug->brushes);
 		}
 		EndMode2D();
 	}
