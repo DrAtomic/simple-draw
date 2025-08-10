@@ -99,5 +99,7 @@ int main(void)
 
 	CloseWindow();
 
+	// free if i want but os does that anyways
+	// hbb_circular_buffer_free(&plug.brushes);
 	return 0;
 }
