@@ -1,3 +1,5 @@
+#include <assert.h>
+
 #include "plug.h"
 #include "raylib.h"
 #include "raymath.h"
@@ -46,20 +48,25 @@ static void mouse_stuff(Plug *plug, Vector2 *mouse_pos, Vector2 *mouse_2d_pos)
 static void draw_all_brushes(circular_buffer *buff)
 {
 	for (size_t i = 0; i < buff->h.current_count; i++) {
-		buff->data[i].draw_brush(&buff->data[i].b_data);
+		brush *cur_brush = &buff->data[i];
+		cur_brush->draw_brush(cur_brush);
 	}
 }
 
-static void draw_rec(brush_data *b)
+static void draw_rec(const struct brush *b)
 {
-	Rectangle rec = b->rec;
-	DrawRectangleRec(rec, SKYBLUE);
+	assert(b->kind == BRUSH_RECTANGLE);
+	Rectangle rec = b->b_data.rec;
+	Color col = b->brush_color;
+	DrawRectangleRec(rec, col);
 }
 
-static void draw_circ(brush_data *b)
+static void draw_circ(const struct brush *b)
 {
-	Circle circ = b->circ;
-	DrawCircleV(circ.center, circ.radius, RED);
+	assert(b->kind == BRUSH_CIRCLE);
+	Circle circ = b->b_data.circ;
+	Color col = b->brush_color;
+	DrawCircleV(circ.center, circ.radius, col);
 }
 
 void plug_update(Plug *plug)
@@ -69,9 +76,9 @@ void plug_update(Plug *plug)
 	mouse_stuff(plug, &mouse_pos, &mouse_2d_pos);
 
 	if (IsKeyPressed(KEY_R)) {
-		plug->mode = RECTANGLE;
+		plug->mode = BRUSH_RECTANGLE;
 	} else if (IsKeyPressed(KEY_C)) {
-		plug->mode = CIRCLE;
+		plug->mode = BRUSH_CIRCLE;
 	}
 	BeginDrawing();
 	{
@@ -81,20 +88,12 @@ void plug_update(Plug *plug)
 		{
 			if (IsMouseButtonDown(MOUSE_LEFT_BUTTON)) {
 				brush b = {};
-				if (plug->mode == RECTANGLE) {
-					Rectangle rec = {
-						.height = 10,
-						.width = 10,
-						.x = mouse_2d_pos.x,
-						.y = mouse_2d_pos.y,
-					};
-					b = (brush) {.kind = RECTANGLE, .b_data.rec = rec, .draw_brush = &draw_rec};
-				} else if (plug->mode == CIRCLE) {
-					Circle circ = {
-						.center = mouse_2d_pos,
-						.radius = 5,
-					};
-					b = (brush) {.kind = CIRCLE, .b_data.circ = circ, .draw_brush = &draw_circ};
+				if (plug->mode == BRUSH_RECTANGLE) {
+					Rectangle rec = { .height = 10, .width = 10, .x = mouse_2d_pos.x, .y = mouse_2d_pos.y, };
+					b = (brush) { .kind = BRUSH_RECTANGLE, .b_data = { .rec = rec }, .brush_color = RED, .draw_brush = &draw_rec };
+				} else if (plug->mode == BRUSH_CIRCLE) {
+					Circle circ = { .center = mouse_2d_pos, .radius = 5, };
+					b = (brush) { .kind = BRUSH_CIRCLE, .b_data = { .circ = circ }, .brush_color = GREEN, .draw_brush = &draw_circ };
 				}
 				hbb_circular_buffer_push(&plug->brushes, b);
 			}

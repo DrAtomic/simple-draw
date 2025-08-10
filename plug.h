@@ -5,9 +5,9 @@
 #include "hbb_circular_queue.h"
 
 typedef enum {
-	RECTANGLE,
-	CIRCLE,
-	NONE
+	BRUSH_RECTANGLE,
+	BRUSH_CIRCLE,
+	BRUSH_NONE
 } brush_kind;
 
 typedef struct {
@@ -23,7 +23,8 @@ typedef union {
 typedef struct brush {
 	brush_kind kind;
 	brush_data b_data;
-	void (*draw_brush)(brush_data *);
+	Color brush_color;
+	void (*draw_brush)(const struct brush *);
 } brush;
 
 typedef struct circular_buffer {
