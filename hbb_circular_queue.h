@@ -25,13 +25,18 @@ typedef struct {
 #define cast_ptr(...)
 #endif /* __cplusplus */
 
+#define hbb_circular_buffer_reset(buff)	\
+do {						\
+	(buff)->h.head = 0;			\
+	(buff)->h.tail = 0;			\
+	(buff)->h.current_count = 0;		\
+	(buff)->h.full = false;		\
+} while (0)
+
 #define hbb_circular_buffer_init(buff, size)								\
 do {													\
-	(buff)->h.head = 0;										\
-	(buff)->h.tail = 0;										\
-	(buff)->h.current_count = 0;									\
+	hbb_circular_buffer_reset(buff);								\
 	(buff)->h.max_count = size;									\
-	(buff)->h.full = false;									\
 	(buff)->data = cast_ptr((buff)->data)realloc((buff)->data, sizeof(*(buff)->data) * size);	\
 } while (0)
 

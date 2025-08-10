@@ -4,9 +4,30 @@
 #include "raylib.h"
 #include "hbb_circular_queue.h"
 
+typedef enum {
+	RECTANGLE,
+	CIRCLE,
+	NONE
+} brush_kind;
+
+typedef struct {
+	Vector2 center;
+	float radius;
+} Circle;
+
+typedef union {
+	Rectangle rec;
+	Circle circ;
+} brush_data;
+
+typedef struct brush {
+	brush_kind kind;
+	brush_data b_data;
+} brush;
+
 typedef struct circular_buffer {
 	hbb_circular_buffer_handler h;
-	Rectangle *data;
+	brush *data;
 } circular_buffer;
 
 typedef struct {

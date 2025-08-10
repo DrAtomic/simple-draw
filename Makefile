@@ -16,7 +16,7 @@ all: $(APP)
 $(RAY_DIR)/libraylib.so:
 	make -C $(RAY_DIR) RAYLIB_LIBTYPE=SHARED
 
-libplug.so: plug.c plug.h
+libplug.so: plug.c plug.h hbb_circular_queue.h
 	gcc $(CFLAGS) $(INCLUDE_PATHS) -fPIC -shared plug.c -o libplug.so $(LIBS) $(LINK_OPTS)
 
 $(APP): $(RAY_DIR)/libraylib.so libplug.so main.c
