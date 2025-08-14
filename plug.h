@@ -1,8 +1,13 @@
 #ifndef PLUG_H
 #define PLUG_H
-
+#include <stdint.h>
 #include "raylib.h"
 #include "hbb_circular_queue.h"
+
+#define Kilobytes(value) ((value) * 1024LL)
+#define Megabytes(value) (Kilobytes(value) * 1024LL)
+#define Gigabytes(value) (Megabytes(value) * 1024LL)
+#define Terabytes(value) (Gigabytes(value) * 1024LL)
 
 typedef enum {
 	BRUSH_RECTANGLE,
@@ -32,10 +37,19 @@ typedef struct circular_buffer {
 	brush *data;
 } circular_buffer;
 
+struct Arena {
+	uint64_t size;
+	uint64_t used;
+	void *base;
+};
+
 typedef struct {
-	Camera2D camera;
-	circular_buffer brushes;
-	brush_kind mode;
+	struct Arena world_arena;
+	Camera2D *camera;
+	circular_buffer *brushes;
+	brush_kind *mode;
+	void *permanent_storage;
+	uint64_t permanent_storage_size;
 } Plug;
 
 typedef void (*plug_init_t) (Plug *plug);

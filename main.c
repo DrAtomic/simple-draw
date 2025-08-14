@@ -5,8 +5,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include "raylib.h"
 
+#include "raylib.h"
 #include "plug.h"
 
 const char *lib_plug_file_name = "libplug.so";
