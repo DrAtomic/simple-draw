@@ -38,8 +38,8 @@ typedef struct circular_buffer {
 } circular_buffer;
 
 struct Arena {
-	uint64_t size;
-	uint64_t used;
+	size_t size;
+	size_t used;
 	void *base;
 };
 

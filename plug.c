@@ -12,7 +12,7 @@
 #define ENTITY_SIZE 10000
 
 #define DEFAULT_ALIGNMENT (2*sizeof(void *))
-void *_ArenaPush(struct Arena *arena, uint64_t size, bool clearToZero)
+static void *_ArenaPush(struct Arena *arena, size_t size, bool clearToZero)
 {
 	void *ret = arena->base + arena->used;
 	arena->used += size;
@@ -22,7 +22,7 @@ void *_ArenaPush(struct Arena *arena, uint64_t size, bool clearToZero)
 	return ret;
 }
 
-void initialize_arena(struct Arena *arena, uint64_t size, uint8_t *base)
+static void initialize_arena(struct Arena *arena, size_t size, uint8_t *base)
 {
 	arena->size = size;
 	arena->base = base;
@@ -30,6 +30,7 @@ void initialize_arena(struct Arena *arena, uint64_t size, uint8_t *base)
 }
 
 #define ArenaPushStruct(arena, type) (type *)_ArenaPush(arena, sizeof(type), true)
+#define ArenaPushArray(arena, count, type) (type *)_ArenaPush(arena, (count) * sizeof(type), true)
 #define ArenaPush(arena, size) _ArenaPush(arena, size, true);
 void plug_init(Plug *plug)
 {
@@ -42,8 +43,11 @@ void plug_init(Plug *plug)
 	initialize_arena(&plug->world_arena, plug->permanent_storage_size, plug->permanent_storage);
 
 	plug->camera = ArenaPushStruct(&plug->world_arena, Camera2D);
+
 	plug->brushes = ArenaPushStruct(&plug->world_arena, circular_buffer);
-	hbb_circular_buffer_init(plug->brushes, ENTITY_SIZE);
+	plug->brushes->data = ArenaPushArray(&plug->world_arena, ENTITY_SIZE, brush);
+	plug->brushes->h.max_count = ENTITY_SIZE;
+
 	plug->mode = ArenaPushStruct(&plug->world_arena, brush_kind);
 	plug->camera->zoom = 1.0f;
 }
