@@ -72,7 +72,6 @@ static void draw_circ(const struct brush *b)
 
 void plug_update(Plug *plug)
 {
-	(void)plug;
 	Vector2 mouse_pos = GetMousePosition();
 	Vector2 mouse_2d_pos = GetScreenToWorld2D(GetMousePosition(), *plug->camera);
 	mouse_stuff(plug->camera, &mouse_pos, &mouse_2d_pos);
