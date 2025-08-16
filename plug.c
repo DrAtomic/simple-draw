@@ -1,9 +1,9 @@
-#include "stdio.h"
-
 #include <assert.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdio.h>
 
+#include "arena.h"
 #include "plug.h"
 #include "raylib.h"
 #include "raymath.h"
@@ -11,27 +11,6 @@
 
 #define ENTITY_SIZE 10000
 
-#define DEFAULT_ALIGNMENT (2*sizeof(void *))
-static void *_arena_push(struct Arena *arena, size_t size, bool clearToZero)
-{
-	void *ret = arena->base + arena->used;
-	arena->used += size;
-	if (clearToZero)
-		memset(ret, 0, size);
-
-	return ret;
-}
-
-static void initialize_arena(struct Arena *arena, size_t size, uint8_t *base)
-{
-	arena->size = size;
-	arena->base = base;
-	arena->used = 0;
-}
-
-#define arena_push_struct(arena, type) (type *)_arena_push(arena, sizeof(type), true)
-#define arena_push_array(arena, count, type) (type *)_arena_push(arena, (count) * sizeof(type), true)
-#define arena_push(arena, size) _arena_push(arena, size, true);
 void plug_init(Plug *plug)
 {
 	plug->permanent_storage = malloc(Gigabytes(2));
@@ -45,7 +24,7 @@ void plug_init(Plug *plug)
 	plug->camera = arena_push_struct(&plug->world_arena, Camera2D);
 
 	// circular buffer for brushes
-	plug->brushes = arena_push_struct(&plug->world_arena, circular_buffer);
+	plug->brushes = arena_push_struct(&plug->world_arena, brush_buffer);
 	plug->brushes->data = arena_push_array(&plug->world_arena, ENTITY_SIZE, brush);
 	plug->brushes->h.max_count = ENTITY_SIZE;
 
@@ -63,7 +42,7 @@ void plug_post_reload(Plug *plug)
 	(void)plug;
 }
 
-static void draw_all_brushes(circular_buffer *buff)
+static void draw_all_brushes(brush_buffer *buff)
 {
 	for (size_t i = 0; i < buff->h.current_count; i++) {
 		brush *cur_brush = &buff->data[i];

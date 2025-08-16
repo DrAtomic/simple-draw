@@ -6,6 +6,7 @@ INCLUDE_PATHS += -I$(RAY_DIR)
 APP = draw
 
 SOURCES = main.c
+PLUG_SOURCES = plug.c arena.c
 
 CFLAGS = -Wall -Wextra -g
 LIBS = -L./$(RAY_DIR)
@@ -16,8 +17,8 @@ all: $(APP)
 $(RAY_DIR)/libraylib.so:
 	make -C $(RAY_DIR) RAYLIB_LIBTYPE=SHARED
 
-libplug.so: plug.c plug.h hbb_circular_queue.h
-	gcc $(CFLAGS) $(INCLUDE_PATHS) -fPIC -shared plug.c -o libplug.so $(LIBS) $(LINK_OPTS)
+libplug.so: $(PLUG_SOURCES) plug.h hbb_circular_queue.h
+	gcc $(CFLAGS) $(INCLUDE_PATHS) -fPIC -shared $(PLUG_SOURCES) -o libplug.so $(LIBS) $(LINK_OPTS)
 
 $(APP): $(RAY_DIR)/libraylib.so libplug.so main.c
 	gcc $(CFLAGS) $(INCLUDE_PATHS) $(SOURCES) -o $(APP) $(LIBS) $(LINK_OPTS)

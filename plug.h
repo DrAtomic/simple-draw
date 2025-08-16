@@ -2,6 +2,7 @@
 #define PLUG_H
 
 #include <stdint.h>
+#include "arena.h"
 #include "raylib.h"
 #include "hbb_circular_queue.h"
 
@@ -33,21 +34,15 @@ typedef struct brush {
 	void (*draw_brush)(const struct brush *);
 } brush;
 
-typedef struct circular_buffer {
+typedef struct {
 	hbb_circular_buffer_handler h;
 	brush *data;
-} circular_buffer;
-
-struct Arena {
-	size_t size;
-	size_t used;
-	void *base;
-};
+} brush_buffer;
 
 typedef struct {
 	struct Arena world_arena;
 	Camera2D *camera;
-	circular_buffer *brushes;
+	brush_buffer *brushes;
 	brush_kind *mode;
 	void *permanent_storage;
 	size_t permanent_storage_size;
