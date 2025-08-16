@@ -44,6 +44,7 @@ void plug_init(Plug *plug)
 
 	plug->camera = arena_push_struct(&plug->world_arena, Camera2D);
 
+	// circular buffer for brushes
 	plug->brushes = arena_push_struct(&plug->world_arena, circular_buffer);
 	plug->brushes->data = arena_push_array(&plug->world_arena, ENTITY_SIZE, brush);
 	plug->brushes->h.max_count = ENTITY_SIZE;

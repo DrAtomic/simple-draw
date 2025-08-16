@@ -1,5 +1,6 @@
 #ifndef PLUG_H
 #define PLUG_H
+
 #include <stdint.h>
 #include "raylib.h"
 #include "hbb_circular_queue.h"
@@ -49,7 +50,7 @@ typedef struct {
 	circular_buffer *brushes;
 	brush_kind *mode;
 	void *permanent_storage;
-	uint64_t permanent_storage_size;
+	size_t permanent_storage_size;
 } Plug;
 
 typedef void (*plug_init_t) (Plug *plug);
