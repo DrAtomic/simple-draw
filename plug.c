@@ -12,7 +12,7 @@
 #define ENTITY_SIZE 10000
 
 #define DEFAULT_ALIGNMENT (2*sizeof(void *))
-static void *_ArenaPush(struct Arena *arena, size_t size, bool clearToZero)
+static void *_arena_push(struct Arena *arena, size_t size, bool clearToZero)
 {
 	void *ret = arena->base + arena->used;
 	arena->used += size;
@@ -29,9 +29,9 @@ static void initialize_arena(struct Arena *arena, size_t size, uint8_t *base)
 	arena->used = 0;
 }
 
-#define ArenaPushStruct(arena, type) (type *)_ArenaPush(arena, sizeof(type), true)
-#define ArenaPushArray(arena, count, type) (type *)_ArenaPush(arena, (count) * sizeof(type), true)
-#define ArenaPush(arena, size) _ArenaPush(arena, size, true);
+#define arena_push_struct(arena, type) (type *)_arena_push(arena, sizeof(type), true)
+#define arena_push_array(arena, count, type) (type *)_arena_push(arena, (count) * sizeof(type), true)
+#define arena_push(arena, size) _arena_push(arena, size, true);
 void plug_init(Plug *plug)
 {
 	plug->permanent_storage = malloc(Gigabytes(2));
@@ -42,13 +42,13 @@ void plug_init(Plug *plug)
 	plug->permanent_storage_size = Gigabytes(2);
 	initialize_arena(&plug->world_arena, plug->permanent_storage_size, plug->permanent_storage);
 
-	plug->camera = ArenaPushStruct(&plug->world_arena, Camera2D);
+	plug->camera = arena_push_struct(&plug->world_arena, Camera2D);
 
-	plug->brushes = ArenaPushStruct(&plug->world_arena, circular_buffer);
-	plug->brushes->data = ArenaPushArray(&plug->world_arena, ENTITY_SIZE, brush);
+	plug->brushes = arena_push_struct(&plug->world_arena, circular_buffer);
+	plug->brushes->data = arena_push_array(&plug->world_arena, ENTITY_SIZE, brush);
 	plug->brushes->h.max_count = ENTITY_SIZE;
 
-	plug->mode = ArenaPushStruct(&plug->world_arena, brush_kind);
+	plug->mode = arena_push_struct(&plug->world_arena, brush_kind);
 	plug->camera->zoom = 1.0f;
 }
 
