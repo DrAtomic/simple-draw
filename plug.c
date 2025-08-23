@@ -28,7 +28,7 @@ void plug_post_reload(Plug *plug)
 
 static void draw(const struct brush *cur, const struct brush *next)
 {
-	DrawLineEx(cur->b_data, next->b_data, 10, cur->brush_color);
+	DrawLineEx(cur->b_data, next->b_data, 2, cur->brush_color);
 }
 
 static void draw_all_brushes(stroke_list *head)
