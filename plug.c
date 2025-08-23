@@ -85,6 +85,43 @@ static void stroke_grid_add_row(Arena *a, stroke_grid *g)
 	}
 }
 
+static void draw_row_stamp(const point_buf *pb, const stroke_list *row)
+{
+	if (row->count < 2)
+		return;
+	size_t s = row->start;
+	size_t e = s + row->count;
+
+	for (size_t i = s; i + 1 < e; ++i) {
+		const brush_pt *A = &pb->data[i];
+		const brush_pt *B = &pb->data[i+1];
+
+		Vector2 ab = Vector2Subtract(B->pos, A->pos);
+		float len = Vector2Length(ab);
+
+		if (len <= 0.0f) {
+			DrawCircleV(A->pos, A->size * 0.5f, A->brush_color);
+			continue;
+		}
+
+		float r0 = A->size * 0.5f;
+		float r1 = B->size * 0.5f;
+		float step = fmaxf(1.0f, 0.5f * fminf(r0, r1));
+
+		Vector2 dir = Vector2Scale(ab, 1.0f / len);
+		float t = 0.0f;
+		while (t <= len) {
+			float u = (len > 0.0f) ? t / len : 0.0f;
+			Vector2 p = Vector2Add(A->pos, Vector2Scale(dir, t));
+			float r = (1.0f - u) * r0 + u * r1;
+			Color c = A->brush_color;
+			DrawCircleV(p, r, c);
+			t += step;
+		}
+		DrawCircleV(B->pos, r1, B->brush_color);
+	}
+}
+
 static void stroke_row_add_point(point_buf *pb, stroke_list *row, brush_pt p)
 {
 	size_t idx = points_push(pb, p);
@@ -97,19 +134,8 @@ static void stroke_row_add_point(point_buf *pb, stroke_list *row, brush_pt p)
 
 static void draw_all_brushes(const stroke_grid *g, const point_buf *pb)
 {
-	for (stroke_list *row = g->head; row; row = row->down) {
-		if (row->count < 2)
-			continue;
-
-		size_t s = row->start;
-		size_t e = s + row->count;
-
-		for (size_t i = s; i + 1 < e; ++i) {
-			const brush_pt *a = &pb->data[i];
-			const brush_pt *b = &pb->data[i+1];
-			DrawLineEx(a->pos, b->pos, a->size, a->brush_color);
-		}
-	}
+	for (const stroke_list *row = g->head; row; row = row->down)
+		draw_row_stamp(pb, row);
 }
 
 static float dist_point_segment(Vector2 p, Vector2 a, Vector2 b)
@@ -147,7 +173,7 @@ static stroke_list *stroke_grid_insert_row_below(Arena *a, stroke_grid *g, strok
 static bool erase_at(Plug *plug, Vector2 p, float radius)
 {
 	stroke_grid *g = &plug->grid;
-	point_buf   *pb = &plug->points;
+	point_buf *pb = &plug->points;
 
 	for (stroke_list *row = g->head; row; row = row->down) {
 		if (row->count < 2)
