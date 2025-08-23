@@ -2,6 +2,9 @@
 #define ARENA_H
 
 #include <stddef.h>
+#include <assert.h>
+#include <string.h>
+#include <stdint.h>
 
 struct Arena {
 	size_t size;

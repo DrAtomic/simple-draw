@@ -1,11 +1,13 @@
+#include <assert.h>
 #include <string.h>
 #include <stdint.h>
 
 #include "arena.h"
 
-#define DEFAULT_ALIGNMENT (2*sizeof(void *))
 void *_arena_push(struct Arena *arena, size_t size, bool clearToZero)
 {
+	assert((arena->used + size) <= arena->size);
+
 	void *ret = arena->base + arena->used;
 	arena->used += size;
 	if (clearToZero)

@@ -4,46 +4,36 @@
 #include <stdint.h>
 #include "arena.h"
 #include "raylib.h"
-#include "hbb_circular_queue.h"
 
 #define Kilobytes(value) ((value) * 1024LL)
 #define Megabytes(value) (Kilobytes(value) * 1024LL)
 #define Gigabytes(value) (Megabytes(value) * 1024LL)
 #define Terabytes(value) (Gigabytes(value) * 1024LL)
 
-typedef enum {
-	BRUSH_RECTANGLE,
-	BRUSH_CIRCLE,
-	BRUSH_NONE
-} brush_kind;
-
-typedef struct {
-	Vector2 center;
-	float radius;
-} Circle;
-
-typedef union {
-	Rectangle rec;
-	Circle circ;
-} brush_data;
-
 typedef struct brush {
-	brush_kind kind;
-	brush_data b_data;
+	Vector2 b_data;
 	Color brush_color;
-	void (*draw_brush)(const struct brush *);
 } brush;
 
-typedef struct {
-	hbb_circular_buffer_handler h;
-	brush *data;
-} brush_buffer;
+struct hbb_node {
+	struct hbb_node *next;
+	brush el;
+};
+
+typedef struct stroke_list {
+	struct hbb_node *root;
+	struct stroke_list *down;
+} stroke_list;
 
 typedef struct {
 	struct Arena world_arena;
 	Camera2D *camera;
-	brush_buffer *brushes;
-	brush_kind *mode;
+	struct Arena stroke_arena;
+	bool dragging;
+
+	stroke_list *strokes_head;
+	stroke_list *strokes_tail;
+
 	void *permanent_storage;
 	size_t permanent_storage_size;
 } Plug;
