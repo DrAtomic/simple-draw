@@ -1,8 +1,6 @@
-#include "plug.h"
-#include "raylib.h"
-#include "raymath.h"
+#include "raylib_helpers.h"
 
-static void mouse_and_camera_stuff(Camera2D *camera, Vector2 *mouse_pos, Vector2 *mouse_2d_pos)
+void mouse_and_camera_stuff(Camera2D *camera, Vector2 *mouse_pos, Vector2 *mouse_2d_pos)
 {
 	*mouse_pos = GetMousePosition();
 	*mouse_2d_pos = GetScreenToWorld2D(GetMousePosition(), *camera);

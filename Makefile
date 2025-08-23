@@ -6,8 +6,8 @@ INCLUDE_PATHS += -I$(RAY_DIR)
 APP = draw
 
 SOURCES = main.c
-PLUG_SOURCES = plug.c arena.c
-PLUG_INCLUDES = plug.h arena.h
+PLUG_SOURCES = plug.c arena.c raylib_helpers.c
+PLUG_INCLUDES = plug.h arena.h raylib_helpers.h
 
 CFLAGS = -Wall -Wextra -g
 LIBS = -L./$(RAY_DIR)
