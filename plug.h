@@ -35,8 +35,9 @@ typedef struct stroke_grid {
 
 typedef struct {
 	Arena world_arena;
-	Camera2D *camera;
 	Arena stroke_arena;
+	Arena erase_arena;
+	Camera2D *camera;
 	bool dragging;
 	bool erasing;
 	float eraser_radius;

@@ -18,8 +18,15 @@ static void points_init(Arena *a, point_buf *pb, size_t cap)
 
 void plug_init(Plug *plug)
 {
-	initialize_arena(&plug->world_arena, sizeof(*plug), plug->permanent_storage);
-	initialize_arena(&plug->stroke_arena, plug->permanent_storage_size - sizeof(*plug), plug->permanent_storage + sizeof(*plug));
+	uint8_t *base = (uint8_t*)plug->permanent_storage;
+	size_t cap = plug->permanent_storage_size;
+	size_t world_bytes = sizeof(*plug);
+	initialize_arena(&plug->world_arena, world_bytes, base);
+
+	size_t erase_bytes = Megabytes(8);
+	initialize_arena(&plug->erase_arena, erase_bytes, base + world_bytes);
+	size_t stroke_bytes = cap - world_bytes - erase_bytes;
+	initialize_arena(&plug->stroke_arena, stroke_bytes, base + world_bytes + erase_bytes);
 
 	plug->eraser_radius = 8.0f;
 	plug->brush_size = 8.0f;
@@ -167,37 +174,6 @@ static stroke_list *stroke_grid_insert_row_below(Arena *a, stroke_grid *g, strok
 	return row;
 }
 
-static bool erase_at(Plug *plug, Vector2 p, float radius)
-{
-	stroke_grid *g = &plug->grid;
-	point_buf *pb = &plug->points;
-
-	for (stroke_list *row = g->head; row; row = row->down) {
-		if (row->count < 2)
-			continue;
-
-		size_t s = row->start;
-		size_t e = s + row->count;
-
-		for (size_t i = s; i + 1 < e; ++i) {
-			if (dist_point_segment(p, pb->data[i].pos, pb->data[i+1].pos) <= radius) {
-				size_t left_count  = (i - s + 1);
-				size_t right_start = i + 1;
-				size_t right_count = e - right_start;
-
-				if (right_count > 0) {
-					stroke_list *below = stroke_grid_insert_row_below(&plug->stroke_arena, g, row);
-					below->start = right_start;
-					below->count = right_count;
-				}
-				row->count = left_count;
-				return true;
-			}
-		}
-	}
-	return false;
-}
-
 static void stroke_grid_cleanup(stroke_grid *g)
 {
 	stroke_list *prev = NULL;
@@ -222,6 +198,82 @@ static void stroke_grid_cleanup(stroke_grid *g)
 
 	if (!g->head)
 		g->tail = NULL;
+}
+
+static int cut_first_hit_in_row(Plug *plug, stroke_list *row, Vector2 p, float radius)
+{
+	point_buf *pb = &plug->points;
+	if (row->count < 2)
+		return 0;
+
+	size_t s = row->start;
+	size_t e = s + row->count;
+
+	for (size_t i = s; i + 1 < e; ++i) {
+		Vector2 A = pb->data[i].pos, B = pb->data[i+1].pos;
+
+		// quick AABB reject
+		float minx = (A.x < B.x ? A.x : B.x) - radius;
+		float maxx = (A.x > B.x ? A.x : B.x) + radius;
+		float miny = (A.y < B.y ? A.y : B.y) - radius;
+		float maxy = (A.y > B.y ? A.y : B.y) + radius;
+		if (p.x < minx || p.x > maxx || p.y < miny || p.y > maxy) continue;
+
+		if (dist_point_segment(p, A, B) <= radius) {
+			size_t left_count  = (i - s + 1);
+			size_t right_start = i + 1;
+			size_t right_count = e - right_start;
+
+			if (right_count > 0) {
+				stroke_list *below = stroke_grid_insert_row_below(&plug->stroke_arena, &plug->grid, row);
+				below->start = right_start;
+				below->count = right_count;
+			}
+			row->count = left_count;
+			return 1;
+		}
+	}
+	return 0;
+}
+
+static bool batch_erase_at(Plug *plug, Vector2 p, float radius, int max_cuts)
+{
+	stroke_grid *g = &plug->grid;
+
+	if (!g->head)
+		return false;
+
+	int row_count = 0;
+	for (stroke_list *r = g->head; r; r = r->down)
+		row_count++;
+
+	if (row_count == 0)
+		return false;
+
+	stroke_list **rows = arena_push_array(&plug->erase_arena, row_count, stroke_list*);
+	int idx = 0;
+
+	for (stroke_list *r = g->head; r; r = r->down)
+		rows[idx++] = r;
+
+	bool changed = false;
+	int cuts = 0;
+
+	for (int i = row_count - 1; i >= 0 && cuts < max_cuts; --i) {
+		stroke_list *cur = rows[i];
+		while (cur && cuts < max_cuts) {
+			int did = cut_first_hit_in_row(plug, cur, p, radius);
+			if (!did) break;
+			changed = true;
+			cuts++;
+			cur = cur->down;
+		}
+	}
+
+	if (changed)
+		stroke_grid_cleanup(g);
+
+	return changed;
 }
 
 static void set_brush_color_by_index(Plug *plug, size_t idx)
@@ -294,6 +346,8 @@ static bool handle_palette_mouse_input(Plug *plug)
 
 static void handle_input(Plug *plug)
 {
+	plug->erase_arena.used = 0;
+
 	Vector2 mouse_pos = GetMousePosition();
 	Vector2 mouse_2d_pos = GetScreenToWorld2D(GetMousePosition(), *plug->camera);
 	mouse_and_camera_stuff(plug->camera, &mouse_pos, &mouse_2d_pos);
@@ -371,7 +425,7 @@ static void handle_input(Plug *plug)
 	} else {
 		if (!over_palette) {
 			if (plug->erasing) {
-				if (erase_at(plug, mouse_2d_pos, plug->eraser_radius)) {
+				if (batch_erase_at(plug, mouse_2d_pos, plug->eraser_radius, 64)) {
 					stroke_grid_cleanup(&plug->grid);
 				}
 			} else {
