@@ -11,7 +11,7 @@
 #define Terabytes(value) (Gigabytes(value) * 1024LL)
 
 typedef struct brush {
-	Vector2 b_data;
+	Vector2 pos;
 	Color brush_color;
 	size_t size;
 } brush;

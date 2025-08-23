@@ -9,7 +9,6 @@
 void plug_init(Plug *plug)
 {
 	initialize_arena(&plug->world_arena, sizeof(*plug), plug->permanent_storage);
-
 	initialize_arena(&plug->stroke_arena, plug->permanent_storage_size - sizeof(*plug), plug->permanent_storage + sizeof(*plug));
 
 	plug->camera = arena_push_struct(&plug->world_arena, Camera2D);
@@ -28,7 +27,7 @@ void plug_post_reload(Plug *plug)
 
 static void draw(const struct brush *cur, const struct brush *next)
 {
-	DrawLineEx(cur->b_data, next->b_data, cur->size, cur->brush_color);
+	DrawLineEx(cur->pos, next->pos, cur->size, cur->brush_color);
 }
 
 static void draw_all_brushes(stroke_list *head)
@@ -87,13 +86,12 @@ void plug_update(Plug *plug)
 			if (!plug->dragging) {
 				if (IsMouseButtonDown(MOUSE_LEFT_BUTTON)) {
 					plug->dragging = true;
-
 					if (!plug->grid.tail) {
 						stroke_list_add_row(&plug->stroke_arena, &plug->grid);
 					}
 				}
 			} else {
-				brush b = { .b_data = mouse_2d_pos, .size = 2, .brush_color = RED };
+				brush b = { .pos = mouse_2d_pos, .size = 2, .brush_color = RED };
 				stroke_list_push(&plug->stroke_arena, plug->grid.tail, b);
 
 				if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
