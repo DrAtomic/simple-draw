@@ -91,7 +91,7 @@ int main(void)
 	time_t last_modified_time = {0};
 	plug_should_reload(&last_modified_time);
 
-	SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_ALWAYS_RUN);
+	SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_ALWAYS_RUN | FLAG_MSAA_4X_HINT);
 	InitWindow(factor*16, factor*9, "draw");
 	SetTargetFPS(60);
 
