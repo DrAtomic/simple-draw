@@ -33,7 +33,7 @@ static void draw(const brush *cur, const brush *next)
 static void draw_all_brushes(stroke_list *head)
 {
 	for (stroke_list *row = head; row; row = row->down) {
-		for (struct hbb_node *n = row->root; n && n->next; n = n->next) {
+		for (brush_node *n = row->root; n && n->next; n = n->next) {
 			draw(&n->el, &n->next->el);
 		}
 	}
@@ -41,7 +41,7 @@ static void draw_all_brushes(stroke_list *head)
 
 static void stroke_list_push(Arena *a, stroke_list *l, brush b)
 {
-	struct hbb_node *node = arena_push_struct(a, struct hbb_node);
+	brush_node *node = arena_push_struct(a, brush_node);
 
 	node->el = b;
 	node->next = l->root;

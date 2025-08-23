@@ -16,13 +16,13 @@ typedef struct brush {
 	size_t size;
 } brush;
 
-struct hbb_node {
-	struct hbb_node *next;
+typedef struct brush_node {
+	struct brush_node *next;
 	brush el;
-};
+} brush_node;
 
 typedef struct stroke_list {
-	struct hbb_node *root;
+	brush_node *root;
 	struct stroke_list *down;
 } stroke_list;
 
