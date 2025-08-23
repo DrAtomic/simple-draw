@@ -22,7 +22,7 @@ void plug_init(Plug *plug)
 	initialize_arena(&plug->stroke_arena, plug->permanent_storage_size - sizeof(*plug), plug->permanent_storage + sizeof(*plug));
 
 	plug->eraser_radius = 8.0f;
-	plug->brush_size = 2.0f;
+	plug->brush_size = 8.0f;
 	plug->camera = arena_push_struct(&plug->world_arena, Camera2D);
 	plug->camera->zoom = 1.0f;
 	points_init(&plug->stroke_arena, &plug->points, 1000000);
@@ -73,9 +73,6 @@ static size_t points_push(point_buf *pb, brush_pt p)
 static void stroke_grid_add_row(Arena *a, stroke_grid *g)
 {
 	stroke_list *row = arena_push_struct(a, stroke_list);
-	row->start = 0;
-	row->count = 0;
-	row->down  = NULL;
 
 	if (!g->tail) {
 		g->head = g->tail = row;
