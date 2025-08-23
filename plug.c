@@ -25,7 +25,7 @@ void plug_post_reload(Plug *plug)
 	(void)plug;
 }
 
-static void draw(const struct brush *cur, const struct brush *next)
+static void draw(const brush *cur, const brush *next)
 {
 	DrawLineEx(cur->pos, next->pos, cur->size, cur->brush_color);
 }
@@ -39,7 +39,7 @@ static void draw_all_brushes(stroke_list *head)
 	}
 }
 
-static void stroke_list_push(struct Arena *a, stroke_list *l, brush b)
+static void stroke_list_push(Arena *a, stroke_list *l, brush b)
 {
 	struct hbb_node *node = arena_push_struct(a, struct hbb_node);
 
@@ -48,7 +48,7 @@ static void stroke_list_push(struct Arena *a, stroke_list *l, brush b)
 	l->root = node;
 }
 
-static void stroke_list_add_row(struct Arena *a, stroke_grid *g)
+static void stroke_list_add_row(Arena *a, stroke_grid *g)
 {
 	stroke_list *row = arena_push_struct(a, stroke_list);
 
@@ -61,7 +61,7 @@ static void stroke_list_add_row(struct Arena *a, stroke_grid *g)
 	}
 }
 
-static void reset_strokes(struct Arena *a, stroke_grid *g)
+static void reset_strokes(Arena *a, stroke_grid *g)
 {
 	g->head = NULL;
 	g->tail = NULL;

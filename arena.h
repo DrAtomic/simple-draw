@@ -1,19 +1,18 @@
 #ifndef ARENA_H
 #define ARENA_H
 
-#include <assert.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
-struct Arena {
+typedef struct Arena {
 	size_t size;
 	size_t used;
 	void *base;
-};
+} Arena;
 
-void initialize_arena(struct Arena *arena, size_t size, uint8_t *base);
-void *_arena_push(struct Arena *arena, size_t size, bool clearToZero);
+void initialize_arena(Arena *arena, size_t size, uint8_t *base);
+void *_arena_push(Arena *arena, size_t size, bool clear_to_zero);
 
 #define arena_push_struct(arena, type) (type *)_arena_push(arena, sizeof(type), true)
 #define arena_push_array(arena, count, type) (type *)_arena_push(arena, (count) * sizeof(type), true)

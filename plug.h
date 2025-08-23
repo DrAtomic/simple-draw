@@ -32,9 +32,9 @@ typedef struct stroke_grid {
 } stroke_grid;
 
 typedef struct {
-	struct Arena world_arena;
+	Arena world_arena;
 	Camera2D *camera;
-	struct Arena stroke_arena;
+	Arena stroke_arena;
 	bool dragging;
 
 	stroke_grid grid;
