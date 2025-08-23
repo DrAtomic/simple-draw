@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdbool.h>
 
 #include "arena.h"
@@ -5,6 +6,13 @@
 #include "raylib.h"
 #include "raylib_helpers.h"
 #include "raymath.h"
+
+static void points_init(Arena *a, point_buf *pb, size_t cap)
+{
+	pb->data = arena_push_array(a, cap, brush_pt);
+	pb->count = 0;
+	pb->cap = cap;
+}
 
 void plug_init(Plug *plug)
 {
@@ -14,6 +22,7 @@ void plug_init(Plug *plug)
 	plug->eraser_radius = 8.0f;
 	plug->camera = arena_push_struct(&plug->world_arena, Camera2D);
 	plug->camera->zoom = 1.0f;
+	points_init(&plug->stroke_arena, &plug->points, 1000000);
 }
 
 void plug_pre_reload(Plug *plug)
@@ -24,6 +33,65 @@ void plug_pre_reload(Plug *plug)
 void plug_post_reload(Plug *plug)
 {
 	(void)plug;
+}
+
+static void reset_strokes(Arena *a, stroke_grid *g, point_buf *pb)
+{
+	g->head = NULL;
+	g->tail = NULL;
+	a->used = 0;
+	points_init(a, pb, pb->cap);
+}
+
+static size_t points_push(point_buf *pb, brush_pt p)
+{
+	assert(pb->count < pb->cap && "point buffer full");
+
+	pb->data[pb->count] = p;
+
+	return pb->count++;
+}
+
+static void stroke_grid_add_row(Arena *a, stroke_grid *g)
+{
+	stroke_list *row = arena_push_struct(a, stroke_list);
+	row->start = 0;
+	row->count = 0;
+	row->down  = NULL;
+
+	if (!g->tail) {
+		g->head = g->tail = row;
+	} else {
+		g->tail->down = row;
+		g->tail = row;
+	}
+}
+
+static void stroke_row_add_point(point_buf *pb, stroke_list *row, brush_pt p)
+{
+	size_t idx = points_push(pb, p);
+
+	if (row->count == 0)
+		row->start = idx;
+
+	row->count++;
+}
+
+static void draw_all_brushes(const stroke_grid *g, const point_buf *pb)
+{
+	for (stroke_list *row = g->head; row; row = row->down) {
+		if (row->count < 2)
+			continue;
+
+		size_t s = row->start;
+		size_t e = s + row->count;
+
+		for (size_t i = s; i + 1 < e; ++i) {
+			const brush_pt *a = &pb->data[i];
+			const brush_pt *b = &pb->data[i+1];
+			DrawLineEx(a->pos, b->pos, a->size, a->brush_color);
+		}
+	}
 }
 
 static float dist_point_segment(Vector2 p, Vector2 a, Vector2 b)
@@ -49,8 +117,7 @@ static stroke_list *stroke_grid_insert_row_below(Arena *a, stroke_grid *g, strok
 {
 	stroke_list *row = arena_push_struct(a, stroke_list);
 
-	row->root = NULL;
-	row->down = above->down;
+	row->down  = above->down;
 	above->down = row;
 
 	if (g->tail == above)
@@ -59,20 +126,30 @@ static stroke_list *stroke_grid_insert_row_below(Arena *a, stroke_grid *g, strok
 	return row;
 }
 
-
 static bool erase_at(Plug *plug, Vector2 p, float radius)
 {
 	stroke_grid *g = &plug->grid;
+	point_buf   *pb = &plug->points;
 
 	for (stroke_list *row = g->head; row; row = row->down) {
-		for (brush_node *n = row->root; n && n->next; n = n->next) {
-			if (dist_point_segment(p, n->el.pos, n->next->el.pos) <= radius) {
-				brush_node *tail = n->next;
-				n->next = NULL;
+		if (row->count < 2)
+			continue;
 
-				stroke_list *below = stroke_grid_insert_row_below(&plug->stroke_arena, g, row);
-				below->root = tail;
+		size_t s = row->start;
+		size_t e = s + row->count;
 
+		for (size_t i = s; i + 1 < e; ++i) {
+			if (dist_point_segment(p, pb->data[i].pos, pb->data[i+1].pos) <= radius) {
+				size_t left_count  = (i - s + 1);
+				size_t right_start = i + 1;
+				size_t right_count = e - right_start;
+
+				if (right_count > 0) {
+					stroke_list *below = stroke_grid_insert_row_below(&plug->stroke_arena, g, row);
+					below->start = right_start;
+					below->count = right_count;
+				}
+				row->count = left_count;
 				return true;
 			}
 		}
@@ -80,67 +157,30 @@ static bool erase_at(Plug *plug, Vector2 p, float radius)
 	return false;
 }
 
-static void draw(const brush *cur, const brush *next)
-{
-	DrawLineEx(cur->pos, next->pos, cur->size, cur->brush_color);
-}
-
-static void draw_all_brushes(stroke_list *head)
-{
-	for (stroke_list *row = head; row; row = row->down) {
-		for (brush_node *n = row->root; n && n->next; n = n->next) {
-			draw(&n->el, &n->next->el);
-		}
-	}
-}
-
-static void stroke_list_push(Arena *a, stroke_list *l, const brush b)
-{
-	brush_node *node = arena_push_struct(a, brush_node);
-
-	node->el = b;
-	node->next = l->root;
-	l->root = node;
-}
-
-static void stroke_grid_add_row(Arena *a, stroke_grid *g)
-{
-	stroke_list *row = arena_push_struct(a, stroke_list);
-
-	if (g->tail == NULL) {
-		g->head = row;
-		g->tail = row;
-	} else {
-		g->tail->down = row;
-		g->tail = row;
-	}
-}
-
-static void reset_strokes(Arena *a, stroke_grid *g)
-{
-	g->head = NULL;
-	g->tail = NULL;
-	a->used = 0;
-}
-
 static void stroke_grid_cleanup(stroke_grid *g)
 {
-	stroke_list *prev = NULL, *cur = g->head;
+	stroke_list *prev = NULL;
+	stroke_list *cur = g->head;
+
 	while (cur) {
-		if (cur->root == NULL) {
+		if (cur->count == 0) {
 			if (prev)
 				prev->down = cur->down;
 			else
 				g->head = cur->down;
+
 			if (g->tail == cur)
 				g->tail = prev;
+
 			cur = (prev ? prev->down : g->head);
 		} else {
 			prev = cur;
 			cur = cur->down;
 		}
 	}
-	if (!g->head) g->tail = NULL;
+
+	if (!g->head)
+		g->tail = NULL;
 }
 
 static void handle_input(Plug *plug)
@@ -154,7 +194,7 @@ static void handle_input(Plug *plug)
 	}
 
 	if (IsKeyPressed(KEY_D) && !plug->dragging) {
-		reset_strokes(&plug->stroke_arena, &plug->grid);
+		reset_strokes(&plug->stroke_arena, &plug->grid, &plug->points);
 		return;
 	}
 
@@ -162,8 +202,10 @@ static void handle_input(Plug *plug)
 		if (IsMouseButtonDown(MOUSE_LEFT_BUTTON)) {
 			plug->dragging = true;
 
-			if (!plug->erasing && !plug->grid.tail) {
-				stroke_grid_add_row(&plug->stroke_arena, &plug->grid);
+			if (!plug->erasing) {
+				if (!plug->grid.tail || plug->grid.tail->count != 0) {
+					stroke_grid_add_row(&plug->stroke_arena, &plug->grid);
+				}
 			}
 		}
 	} else {
@@ -172,8 +214,8 @@ static void handle_input(Plug *plug)
 				stroke_grid_cleanup(&plug->grid);
 			}
 		} else {
-			const brush b = { .pos = mouse_2d_pos, .size = 2, .brush_color = SKYBLUE };
-			stroke_list_push(&plug->stroke_arena, plug->grid.tail, b);
+			const brush_pt p = { .pos = mouse_2d_pos, .size = 2.0f, .brush_color = RED };
+			stroke_row_add_point(&plug->points, plug->grid.tail, p);
 		}
 
 		if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
@@ -182,7 +224,7 @@ static void handle_input(Plug *plug)
 			if (plug->erasing) {
 				stroke_grid_cleanup(&plug->grid);
 
-				if (plug->grid.tail && plug->grid.tail->root != NULL) {
+				if (plug->grid.tail && plug->grid.tail->count != 0) {
 					stroke_grid_add_row(&plug->stroke_arena, &plug->grid);
 				}
 			} else {
@@ -201,7 +243,9 @@ void plug_update(Plug *plug)
 		ClearBackground(GetColor(0x151515FF));
 		BeginMode2D(*plug->camera);
 		{
-			draw_all_brushes(plug->grid.head);
+			draw_all_brushes(&plug->grid, &plug->points);
+			if (plug->erasing)
+				DrawCircleLinesV(GetScreenToWorld2D(GetMousePosition(), *plug->camera), plug->eraser_radius, RAYWHITE);
 		}
 		EndMode2D();
 	}

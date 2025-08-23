@@ -10,19 +10,21 @@
 #define Gigabytes(value) (Megabytes(value) * 1024LL)
 #define Terabytes(value) (Gigabytes(value) * 1024LL)
 
-typedef struct brush {
+typedef struct {
 	Vector2 pos;
+	float size;
 	Color brush_color;
-	size_t size;
-} brush;
+} brush_pt;
 
-typedef struct brush_node {
-	struct brush_node *next;
-	brush el;
-} brush_node;
+typedef struct {
+	brush_pt *data;
+	size_t count;
+	size_t cap;
+} point_buf;
 
 typedef struct stroke_list {
-	brush_node *root;
+	size_t start;
+	size_t count;
 	struct stroke_list *down;
 } stroke_list;
 
@@ -40,6 +42,7 @@ typedef struct {
 	float eraser_radius;
 
 	stroke_grid grid;
+	point_buf points;
 
 	void *permanent_storage;
 	size_t permanent_storage_size;
