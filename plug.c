@@ -7,6 +7,8 @@
 #include "raylib_helpers.h"
 #include "raymath.h"
 
+#define ARRAY_LEN(x) (sizeof(x) / sizeof(x[0]))
+
 static void points_init(Arena *a, point_buf *pb, size_t cap)
 {
 	pb->data = arena_push_array(a, cap, brush_pt);
@@ -23,6 +25,21 @@ void plug_init(Plug *plug)
 	plug->camera = arena_push_struct(&plug->world_arena, Camera2D);
 	plug->camera->zoom = 1.0f;
 	points_init(&plug->stroke_arena, &plug->points, 1000000);
+
+	plug->palette[0] = RED;
+	plug->palette[1] = RAYWHITE;
+	plug->palette[2] = BLACK;
+	plug->palette[3] = GREEN;
+	plug->palette[4] = BLUE;
+	plug->palette[5] = YELLOW;
+	plug->palette[6] = ORANGE;
+	plug->palette[7] = PURPLE;
+	plug->brush_color = plug->palette[0];
+	plug->palette_count = ARRAY_LEN(plug->palette);
+	plug->swatch_size = 50;
+	plug->swatch_pad = 6;
+	plug->swatch_x0 = 12;
+	plug->swatch_y0 = 12;
 }
 
 void plug_pre_reload(Plug *plug)
@@ -183,11 +200,99 @@ static void stroke_grid_cleanup(stroke_grid *g)
 		g->tail = NULL;
 }
 
+static void set_brush_color_by_index(Plug *plug, size_t idx)
+{
+	assert(idx < ARRAY_LEN(plug->palette));
+
+	plug->color_index = idx;
+	plug->brush_color = plug->palette[idx];
+}
+
+static void cycle_brush_color(Plug *plug, int delta)
+{
+	size_t idx = (plug->color_index + delta) % plug->palette_count;
+
+	set_brush_color_by_index(plug, idx);
+}
+
+static void draw_palette_ui(const Plug *plug)
+{
+	for (size_t i = 0; i < plug->palette_count; ++i) {
+		Rectangle r = {
+			plug->swatch_x0 + i * (plug->swatch_size + plug->swatch_pad),
+			plug->swatch_y0,
+			(float)plug->swatch_size,
+			(float)plug->swatch_size
+		};
+		DrawRectangleRec(r, plug->palette[i]);
+		DrawRectangleLines((int)r.x, (int)r.y, (int)r.width, (int)r.height, DARKGRAY);
+		if (i == plug->color_index) {
+			DrawRectangleLinesEx(r, 2, WHITE);
+		}
+	}
+}
+
+static bool mouse_over_palette(const Plug *plug, Vector2 m)
+{
+	for (size_t i = 0; i < plug->palette_count; ++i) {
+		Rectangle r = {
+			plug->swatch_x0 + i * (plug->swatch_size + plug->swatch_pad),
+			plug->swatch_y0,
+			(float)plug->swatch_size,
+			(float)plug->swatch_size
+		};
+		if (CheckCollisionPointRec(m, r))
+			return true;
+	}
+	return false;
+}
+
+static bool handle_palette_mouse_input(Plug *plug)
+{
+	if (!IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
+		return false;
+
+	Vector2 m = GetMousePosition();
+	for (size_t i = 0; i < plug->palette_count; ++i) {
+		Rectangle r = {
+			plug->swatch_x0 + i * (plug->swatch_size + plug->swatch_pad),
+			plug->swatch_y0,
+			(float)plug->swatch_size,
+			(float)plug->swatch_size
+		};
+		if (CheckCollisionPointRec(m, r)) {
+			set_brush_color_by_index(plug, i);
+			return true;
+		}
+	}
+	return false;
+}
+
 static void handle_input(Plug *plug)
 {
 	Vector2 mouse_pos = GetMousePosition();
 	Vector2 mouse_2d_pos = GetScreenToWorld2D(GetMousePosition(), *plug->camera);
 	mouse_and_camera_stuff(plug->camera, &mouse_pos, &mouse_2d_pos);
+
+	if (IsKeyPressed(KEY_C))
+		cycle_brush_color(plug, +1);
+
+	if (IsKeyPressed(KEY_ONE))
+		set_brush_color_by_index(plug, 0);
+	if (IsKeyPressed(KEY_TWO))
+		set_brush_color_by_index(plug, 1);
+	if (IsKeyPressed(KEY_THREE))
+		set_brush_color_by_index(plug, 2);
+	if (IsKeyPressed(KEY_FOUR))
+		set_brush_color_by_index(plug, 3);
+	if (IsKeyPressed(KEY_FIVE))
+		set_brush_color_by_index(plug, 4);
+	if (IsKeyPressed(KEY_SIX))
+		set_brush_color_by_index(plug, 5);
+	if (IsKeyPressed(KEY_SEVEN))
+		set_brush_color_by_index(plug, 6);
+	if (IsKeyPressed(KEY_EIGHT))
+		set_brush_color_by_index(plug, 7);
 
 	if (IsKeyPressed(KEY_E) && !plug->dragging) {
 		plug->erasing = !plug->erasing;
@@ -198,8 +303,16 @@ static void handle_input(Plug *plug)
 		return;
 	}
 
+	// if the clicking on the palette so it doesn't draw
+	if (handle_palette_mouse_input(plug)) {
+		return;
+	}
+
+	// do not draw over the palette
+	bool over_palette = mouse_over_palette(plug, mouse_pos);
+
 	if (!plug->dragging) {
-		if (IsMouseButtonDown(MOUSE_LEFT_BUTTON)) {
+		if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && !over_palette) {
 			plug->dragging = true;
 
 			if (!plug->erasing) {
@@ -209,13 +322,15 @@ static void handle_input(Plug *plug)
 			}
 		}
 	} else {
-		if (plug->erasing) {
-			if (erase_at(plug, mouse_2d_pos, plug->eraser_radius)) {
-				stroke_grid_cleanup(&plug->grid);
+		if (!over_palette) {
+			if (plug->erasing) {
+				if (erase_at(plug, mouse_2d_pos, plug->eraser_radius)) {
+					stroke_grid_cleanup(&plug->grid);
+				}
+			} else {
+				const brush_pt p = { .pos = mouse_2d_pos, .size = 2.0f, .brush_color = plug->brush_color };
+				stroke_row_add_point(&plug->points, plug->grid.tail, p);
 			}
-		} else {
-			const brush_pt p = { .pos = mouse_2d_pos, .size = 2.0f, .brush_color = RED };
-			stroke_row_add_point(&plug->points, plug->grid.tail, p);
 		}
 
 		if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
@@ -248,6 +363,7 @@ void plug_update(Plug *plug)
 				DrawCircleLinesV(GetScreenToWorld2D(GetMousePosition(), *plug->camera), plug->eraser_radius, RAYWHITE);
 		}
 		EndMode2D();
+		draw_palette_ui(plug);
 	}
 	EndDrawing();
 }

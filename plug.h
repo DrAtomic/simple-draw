@@ -44,6 +44,15 @@ typedef struct {
 	stroke_grid grid;
 	point_buf points;
 
+	Color brush_color;
+	size_t color_index;
+	Color palette[8];
+	size_t palette_count;
+	size_t swatch_size;
+	size_t swatch_pad;
+	size_t swatch_x0;
+	size_t swatch_y0;
+
 	void *permanent_storage;
 	size_t permanent_storage_size;
 } Plug;
