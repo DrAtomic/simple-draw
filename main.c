@@ -80,7 +80,7 @@ static int plug_should_reload(time_t *last_modified_time)
 int main(void)
 {
 	plug.permanent_storage_size = Gigabytes(1);
-	plug.permanent_storage = mmap(NULL, plug.permanent_storage_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
+	plug.permanent_storage = mmap(NULL, plug.permanent_storage_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_POPULATE, 0, 0);
 	if (plug.permanent_storage == MAP_FAILED) {
 		printf("buy more ram\n");
 		exit(0);
