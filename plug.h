@@ -13,6 +13,7 @@
 typedef struct brush {
 	Vector2 b_data;
 	Color brush_color;
+	size_t size;
 } brush;
 
 struct hbb_node {

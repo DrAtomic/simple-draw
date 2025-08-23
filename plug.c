@@ -28,7 +28,7 @@ void plug_post_reload(Plug *plug)
 
 static void draw(const struct brush *cur, const struct brush *next)
 {
-	DrawLineEx(cur->b_data, next->b_data, 2, cur->brush_color);
+	DrawLineEx(cur->b_data, next->b_data, cur->size, cur->brush_color);
 }
 
 static void draw_all_brushes(stroke_list *head)
@@ -92,7 +92,7 @@ void plug_update(Plug *plug)
 						stroke_list_add_row(&plug->stroke_arena, &plug->strokes_head, &plug->strokes_tail);
 				}
 			} else {
-				brush b = { .b_data = mouse_2d_pos, .brush_color = RED };
+				brush b = { .b_data = mouse_2d_pos, .size = 2, .brush_color = GREEN };
 
 				stroke_list_push(&plug->stroke_arena, plug->strokes_tail, b);
 
