@@ -7,7 +7,7 @@ APP = draw
 
 SOURCES = main.c
 PLUG_SOURCES = plug.c arena.c
-PLUG_INCLUDES = plug.h hbb_circular_queue.h arena.h
+PLUG_INCLUDES = plug.h arena.h
 
 CFLAGS = -Wall -Wextra -g
 LIBS = -L./$(RAY_DIR)
