@@ -72,9 +72,26 @@ void plug_update(Plug *plug)
 {
 	Vector2 mouse_pos = GetMousePosition();
 	Vector2 mouse_2d_pos = GetScreenToWorld2D(GetMousePosition(), *plug->camera);
-	mouse_stuff(plug->camera, &mouse_pos, &mouse_2d_pos);
+	mouse_and_camera_stuff(plug->camera, &mouse_pos, &mouse_2d_pos);
 
-	if (IsKeyPressed(KEY_D)) {
+	if (!plug->dragging) {
+		if (IsMouseButtonDown(MOUSE_LEFT_BUTTON)) {
+			plug->dragging = true;
+			if (!plug->grid.tail) {
+				stroke_list_add_row(&plug->stroke_arena, &plug->grid);
+			}
+		}
+	} else {
+		brush b = { .pos = mouse_2d_pos, .size = 2, .brush_color = RED };
+		stroke_list_push(&plug->stroke_arena, plug->grid.tail, b);
+
+		if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
+			plug->dragging = false;
+			stroke_list_add_row(&plug->stroke_arena, &plug->grid);
+		}
+	}
+
+	if (IsKeyPressed(KEY_D) && !plug->dragging) {
 		reset_strokes(&plug->stroke_arena, &plug->grid);
 	}
 
@@ -83,23 +100,6 @@ void plug_update(Plug *plug)
 		ClearBackground(GetColor(0x151515FF));
 		BeginMode2D(*plug->camera);
 		{
-			if (!plug->dragging) {
-				if (IsMouseButtonDown(MOUSE_LEFT_BUTTON)) {
-					plug->dragging = true;
-					if (!plug->grid.tail) {
-						stroke_list_add_row(&plug->stroke_arena, &plug->grid);
-					}
-				}
-			} else {
-				brush b = { .pos = mouse_2d_pos, .size = 2, .brush_color = RED };
-				stroke_list_push(&plug->stroke_arena, plug->grid.tail, b);
-
-				if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
-					plug->dragging = false;
-					stroke_list_add_row(&plug->stroke_arena, &plug->grid);
-				}
-			}
-
 			draw_all_brushes(plug->grid.head);
 		}
 		EndMode2D();
