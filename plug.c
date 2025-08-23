@@ -1,4 +1,4 @@
-#include <assert.h>
+#include <stdbool.h>
 
 #include "arena.h"
 #include "plug.h"
@@ -68,7 +68,7 @@ static void reset_strokes(struct Arena *a, stroke_grid *g)
 	a->used = 0;
 }
 
-void plug_update(Plug *plug)
+static void handle_input(Plug *plug)
 {
 	Vector2 mouse_pos = GetMousePosition();
 	Vector2 mouse_2d_pos = GetScreenToWorld2D(GetMousePosition(), *plug->camera);
@@ -94,6 +94,12 @@ void plug_update(Plug *plug)
 	if (IsKeyPressed(KEY_D) && !plug->dragging) {
 		reset_strokes(&plug->stroke_arena, &plug->grid);
 	}
+
+}
+
+void plug_update(Plug *plug)
+{
+	handle_input(plug);
 
 	BeginDrawing();
 	{
