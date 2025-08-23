@@ -26,14 +26,18 @@ typedef struct stroke_list {
 	struct stroke_list *down;
 } stroke_list;
 
+typedef struct stroke_grid {
+	stroke_list *head;
+	stroke_list *tail;
+} stroke_grid;
+
 typedef struct {
 	struct Arena world_arena;
 	Camera2D *camera;
 	struct Arena stroke_arena;
 	bool dragging;
 
-	stroke_list *strokes_head;
-	stroke_list *strokes_tail;
+	stroke_grid grid;
 
 	void *permanent_storage;
 	size_t permanent_storage_size;

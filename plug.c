@@ -49,23 +49,23 @@ static void stroke_list_push(struct Arena *a, stroke_list *l, brush b)
 	l->root = node;
 }
 
-static void stroke_list_add_row(struct Arena *a, stroke_list **head, stroke_list **tail)
+static void stroke_list_add_row(struct Arena *a, stroke_grid *g)
 {
 	stroke_list *row = arena_push_struct(a, stroke_list);
 
-	if (*tail == NULL) {
-		*head = row;
-		*tail = row;
+	if (g->tail == NULL) {
+		g->head = row;
+		g->tail = row;
 	} else {
-		(*tail)->down = row;
-		*tail = row;
+		g->tail->down = row;
+		g->tail = row;
 	}
 }
 
-static void reset_strokes(struct Arena *a, stroke_list **head, stroke_list **tail)
+static void reset_strokes(struct Arena *a, stroke_grid *g)
 {
-	*head = NULL;
-	*tail = NULL;
+	g->head = NULL;
+	g->tail = NULL;
 	a->used = 0;
 }
 
@@ -76,7 +76,7 @@ void plug_update(Plug *plug)
 	mouse_stuff(plug->camera, &mouse_pos, &mouse_2d_pos);
 
 	if (IsKeyPressed(KEY_D)) {
-		reset_strokes(&plug->stroke_arena, &plug->strokes_head, &plug->strokes_tail);
+		reset_strokes(&plug->stroke_arena, &plug->grid);
 	}
 
 	BeginDrawing();
@@ -88,21 +88,21 @@ void plug_update(Plug *plug)
 				if (IsMouseButtonDown(MOUSE_LEFT_BUTTON)) {
 					plug->dragging = true;
 
-					if (!plug->strokes_tail)
-						stroke_list_add_row(&plug->stroke_arena, &plug->strokes_head, &plug->strokes_tail);
+					if (!plug->grid.tail) {
+						stroke_list_add_row(&plug->stroke_arena, &plug->grid);
+					}
 				}
 			} else {
-				brush b = { .b_data = mouse_2d_pos, .size = 2, .brush_color = GREEN };
-
-				stroke_list_push(&plug->stroke_arena, plug->strokes_tail, b);
+				brush b = { .b_data = mouse_2d_pos, .size = 2, .brush_color = RED };
+				stroke_list_push(&plug->stroke_arena, plug->grid.tail, b);
 
 				if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
 					plug->dragging = false;
-					stroke_list_add_row(&plug->stroke_arena, &plug->strokes_head, &plug->strokes_tail);
+					stroke_list_add_row(&plug->stroke_arena, &plug->grid);
 				}
 			}
 
-			draw_all_brushes(plug->strokes_head);
+			draw_all_brushes(plug->grid.head);
 		}
 		EndMode2D();
 	}
