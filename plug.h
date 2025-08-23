@@ -36,6 +36,8 @@ typedef struct {
 	Camera2D *camera;
 	Arena stroke_arena;
 	bool dragging;
+	bool erasing;
+	float eraser_radius;
 
 	stroke_grid grid;
 
