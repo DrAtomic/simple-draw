@@ -16,6 +16,52 @@ static void points_init(Arena *a, point_buf *pb, size_t cap)
 	pb->cap = cap;
 }
 
+static Image build_color_wheel_image(int diameter, float val)
+{
+	size_t W = diameter;
+	size_t H = diameter;
+	Image img = GenImageColor(W, H, BLANK);
+	Color *px = (Color*)img.data;
+
+	float R = diameter * 0.5f;
+	float cx = R;
+	float cy = R;
+
+	for (size_t y = 0; y < H; ++y) {
+		for (size_t x = 0; x < W; ++x) {
+			float dx = (float)x - cx;
+			float dy = (float)y - cy;
+			float r = sqrtf(dx*dx + dy*dy);
+			if (r <= R) {
+				float sat = r / R;
+				float hue = atan2f(dy, dx) * (180.0f/PI);
+
+				if (hue < 0)
+					hue += 360.0f;
+
+				Color c = ColorFromHSV(hue, sat, val);
+
+				float edge = 1.0f - fmaxf(0.0f, (r - (R-1.0f)));
+				unsigned char a = (unsigned char) (255.0f * fminf(1.0f, edge));
+				c.a = a;
+				px[y*W + x] = c;
+			} else {
+				px[y*W + x] = BLANK;
+			}
+		}
+	}
+	return img;
+}
+
+static Texture2D build_color_wheel_texture(int diameter, float val)
+{
+	Image img = build_color_wheel_image(diameter, val);
+	Texture2D tex = LoadTextureFromImage(img);
+	UnloadImage(img);
+	SetTextureFilter(tex, TEXTURE_FILTER_BILINEAR);
+	return tex;
+}
+
 void plug_init(Plug *plug)
 {
 	uint8_t *base = (uint8_t*)plug->permanent_storage;
@@ -28,26 +74,34 @@ void plug_init(Plug *plug)
 	size_t stroke_bytes = cap - world_bytes - erase_bytes;
 	initialize_arena(&plug->stroke_arena, stroke_bytes, base + world_bytes + erase_bytes);
 
-	plug->eraser_radius = 8.0f;
 	plug->brush_size = 8.0f;
 	plug->camera = arena_push_struct(&plug->world_arena, Camera2D);
 	plug->camera->zoom = 1.0f;
 	points_init(&plug->stroke_arena, &plug->points, 1000000);
 
-	plug->palette[0] = RED;
-	plug->palette[1] = RAYWHITE;
-	plug->palette[2] = BLACK;
-	plug->palette[3] = GREEN;
-	plug->palette[4] = BLUE;
-	plug->palette[5] = YELLOW;
-	plug->palette[6] = ORANGE;
-	plug->palette[7] = PURPLE;
-	plug->brush_color = plug->palette[0];
-	plug->palette_count = ARRAY_LEN(plug->palette);
-	plug->swatch_size = 50;
-	plug->swatch_pad = 6;
-	plug->swatch_x0 = 12;
-	plug->swatch_y0 = 12;
+	plug->wheel_diam = 200;
+	plug->wheel_pos  = (Vector2){ 140.0f, 120.0f };
+	plug->color_wheel_hue   = 0.0f;
+	plug->color_wheel_sat   = 1.0f;
+	plug->color_wheel_val   = 1.0f;
+	plug->color_wheel_alpha = 1.0f;
+
+	plug->color_wheel_val_slider = (Rectangle){
+		plug->wheel_pos.x + plug->wheel_diam / 2 + 16,
+		plug->wheel_pos.y - plug->wheel_diam / 2,
+		14,
+		(float)plug->wheel_diam
+	};
+
+	plug->wheel_tex = build_color_wheel_texture(plug->wheel_diam, plug->color_wheel_val);
+	plug->color_wheel_picker_btn = (Rectangle){ 12, 12, 28, 28 };
+
+	plug->brush_min = 1.0f;
+	plug->brush_max = 100.0f;
+	float wheel_right = plug->wheel_pos.x + plug->wheel_diam * 0.5f;
+	plug->color_wheel_val_slider = (Rectangle){ wheel_right + 16, plug->wheel_pos.y - plug->wheel_diam*0.5f, 14, (float)plug->wheel_diam };
+	plug->brush_size_slider = (Rectangle){ plug->color_wheel_val_slider.x + plug->color_wheel_val_slider.width + 12, plug->color_wheel_val_slider.y, 14, plug->color_wheel_val_slider.height };
+	plug->brush_color = (Color){0xff, 0x00, 0x00, 0xff};
 }
 
 void plug_pre_reload(Plug *plug)
@@ -58,6 +112,125 @@ void plug_pre_reload(Plug *plug)
 void plug_post_reload(Plug *plug)
 {
 	(void)plug;
+}
+
+static void handle_size_slider_input(Plug *plug)
+{
+    Vector2 m = GetMousePosition();
+    if (!CheckCollisionPointRec(m, plug->brush_size_slider))
+	    return;
+    if (!(IsMouseButtonDown(MOUSE_LEFT_BUTTON) || IsMouseButtonPressed(MOUSE_LEFT_BUTTON)))
+	    return;
+
+    float t = (m.y - plug->brush_size_slider.y) / plug->brush_size_slider.height;
+    if (t < 0)
+	    t = 0;
+    if (t > 1)
+	    t = 1;
+    float u = 1.0f - t;
+    plug->brush_size = plug->brush_min + u * (plug->brush_max - plug->brush_min);
+}
+
+static void draw_size_slider_UI(const Plug *plug)
+{
+	DrawRectangleRec(plug->brush_size_slider, (Color){30,30,30,255});
+	DrawRectangleLinesEx(plug->brush_size_slider, 1.0 ,RAYWHITE);
+
+	float u = (plug->brush_size - plug->brush_min) / (plug->brush_max - plug->brush_min);
+	float ty = plug->brush_size_slider.y + (1.0f - u) * plug->brush_size_slider.height;
+
+	DrawLine((int)plug->brush_size_slider.x - 4, (int)ty, (int)(plug->brush_size_slider.x + plug->brush_size_slider.width) + 4, (int)ty, WHITE);
+}
+
+
+static void draw_picker_button(const Plug *plug)
+{
+	DrawRectangleRec(plug->color_wheel_picker_btn, (plug->color_wheel_picker_open ? DARKGRAY : GRAY));
+	DrawRectangleLinesEx(plug->color_wheel_picker_btn, 1.0, RAYWHITE);
+	const char *label = plug->color_wheel_picker_open ? "X" : "C";
+	int tw = MeasureText(label, 18);
+	DrawText(label,
+		 (int)(plug->color_wheel_picker_btn.x + (plug->color_wheel_picker_btn.width - tw)/2),
+		 (int)(plug->color_wheel_picker_btn.y + 5), 18, RAYWHITE);
+}
+
+static bool mouse_over_rect(Rectangle r, Vector2 m)
+{
+    return CheckCollisionPointRec(m, r);
+}
+
+static bool mouse_over_circle(Vector2 m, Vector2 c, float radius)
+{
+	Vector2 d = Vector2Subtract(m, c);
+	return Vector2LengthSqr(d) <= radius*radius;
+}
+
+static void handle_color_wheel_input(Plug *plug)
+{
+	Vector2 m = GetMousePosition();
+	float R = plug->wheel_diam * 0.5f;
+
+	bool overWheel = mouse_over_circle(m, plug->wheel_pos, R);
+	bool overVal   = CheckCollisionPointRec(m, plug->color_wheel_val_slider);
+
+	if (overVal && (IsMouseButtonDown(MOUSE_LEFT_BUTTON) || IsMouseButtonPressed(MOUSE_LEFT_BUTTON))) {
+		float t = (m.y - plug->color_wheel_val_slider.y) / plug->color_wheel_val_slider.height;
+		if (t < 0)
+			t = 0;
+		if (t > 1)
+			t = 1;
+		plug->color_wheel_val = 1.0f - t;
+		plug->wheel_tex = build_color_wheel_texture(plug->wheel_diam, plug->color_wheel_val);
+	}
+
+	if (overWheel && (IsMouseButtonDown(MOUSE_LEFT_BUTTON) || IsMouseButtonPressed(MOUSE_LEFT_BUTTON))) {
+		Vector2 d  = Vector2Subtract(m, plug->wheel_pos);
+		float   ang= atan2f(d.y, d.x) * (180.0f/PI);
+		if (ang < 0) ang += 360.0f;
+		float   r  = Vector2Length(d);
+		float   sat = r / R;
+		if (sat < 0)
+			sat = 0;
+		if (sat > 1)
+			sat = 1;
+		plug->color_wheel_hue = ang;
+		plug->color_wheel_sat = sat;
+	}
+
+	Color sel = ColorFromHSV(plug->color_wheel_hue, plug->color_wheel_sat, plug->color_wheel_val);
+	sel.a = (unsigned char)(plug->color_wheel_alpha * 255.0f);
+	plug->brush_color = sel;
+}
+
+static void draw_color_wheel_UI(const Plug *plug)
+{
+	Rectangle src = { 0, 0, (float)plug->wheel_tex.width, (float)plug->wheel_tex.height };
+	Rectangle dst = {
+		plug->wheel_pos.x - plug->wheel_diam / 2.0f,
+		plug->wheel_pos.y - plug->wheel_diam / 2.0f,
+		(float)plug->wheel_diam,
+		(float)plug->wheel_diam
+	};
+	DrawTexturePro(plug->wheel_tex, src, dst, (Vector2){0,0}, 0.0f, WHITE);
+
+	float R = plug->wheel_diam * 0.5f;
+	float rad = plug->color_wheel_sat * R;
+	float ang = plug->color_wheel_hue * (PI/180.0f);
+	Vector2 p = {
+		plug->wheel_pos.x + rad*cosf(ang),
+		plug->wheel_pos.y + rad*sinf(ang)
+	};
+	DrawCircleLinesV(p, 6.0f, RAYWHITE);
+	DrawCircleLinesV(p, 4.0f, BLACK);
+
+	DrawRectangleRec(plug->color_wheel_val_slider, BLACK);
+
+	float ty = plug->color_wheel_val_slider.y + (1.0f - plug->color_wheel_val) * plug->color_wheel_val_slider.height;
+	DrawLine((int)plug->color_wheel_val_slider.x - 4, (int)ty, (int)(plug->color_wheel_val_slider.x + plug->color_wheel_val_slider.width) + 4, (int)ty, WHITE);
+
+	Rectangle sw = { plug->color_wheel_val_slider.x + plug->color_wheel_val_slider.width + 15 + plug->brush_size_slider.width, plug->color_wheel_val_slider.y, 32, 32 };
+	DrawRectangleRec(sw, plug->brush_color);
+	DrawRectangleLines((int)sw.x, (int)sw.y, (int)sw.width, (int)sw.height, DARKGRAY);
 }
 
 static void reset_strokes(Arena *a, stroke_grid *g, point_buf *pb)
@@ -212,12 +385,13 @@ static int cut_first_hit_in_row(Plug *plug, stroke_list *row, Vector2 p, float r
 	for (size_t i = s; i + 1 < e; ++i) {
 		Vector2 A = pb->data[i].pos, B = pb->data[i+1].pos;
 
-		// quick AABB reject
 		float minx = (A.x < B.x ? A.x : B.x) - radius;
 		float maxx = (A.x > B.x ? A.x : B.x) + radius;
 		float miny = (A.y < B.y ? A.y : B.y) - radius;
 		float maxy = (A.y > B.y ? A.y : B.y) + radius;
-		if (p.x < minx || p.x > maxx || p.y < miny || p.y > maxy) continue;
+
+		if (p.x < minx || p.x > maxx || p.y < miny || p.y > maxy)
+			continue;
 
 		if (dist_point_segment(p, A, B) <= radius) {
 			size_t left_count  = (i - s + 1);
@@ -276,74 +450,6 @@ static bool batch_erase_at(Plug *plug, Vector2 p, float radius, int max_cuts)
 	return changed;
 }
 
-static void set_brush_color_by_index(Plug *plug, size_t idx)
-{
-	assert(idx < ARRAY_LEN(plug->palette));
-
-	plug->color_index = idx;
-	plug->brush_color = plug->palette[idx];
-}
-
-static void cycle_brush_color(Plug *plug, int delta)
-{
-	size_t idx = (plug->color_index + delta) % plug->palette_count;
-
-	set_brush_color_by_index(plug, idx);
-}
-
-static void draw_palette_ui(const Plug *plug)
-{
-	for (size_t i = 0; i < plug->palette_count; ++i) {
-		Rectangle r = {
-			plug->swatch_x0 + i * (plug->swatch_size + plug->swatch_pad),
-			plug->swatch_y0,
-			(float)plug->swatch_size,
-			(float)plug->swatch_size
-		};
-		DrawRectangleRec(r, plug->palette[i]);
-		DrawRectangleLines((int)r.x, (int)r.y, (int)r.width, (int)r.height, DARKGRAY);
-		if (i == plug->color_index) {
-			DrawRectangleLinesEx(r, 2, WHITE);
-		}
-	}
-}
-
-static bool mouse_over_palette(const Plug *plug, Vector2 m)
-{
-	for (size_t i = 0; i < plug->palette_count; ++i) {
-		Rectangle r = {
-			plug->swatch_x0 + i * (plug->swatch_size + plug->swatch_pad),
-			plug->swatch_y0,
-			(float)plug->swatch_size,
-			(float)plug->swatch_size
-		};
-		if (CheckCollisionPointRec(m, r))
-			return true;
-	}
-	return false;
-}
-
-static bool handle_palette_mouse_input(Plug *plug)
-{
-	if (!IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
-		return false;
-
-	Vector2 m = GetMousePosition();
-	for (size_t i = 0; i < plug->palette_count; ++i) {
-		Rectangle r = {
-			plug->swatch_x0 + i * (plug->swatch_size + plug->swatch_pad),
-			plug->swatch_y0,
-			(float)plug->swatch_size,
-			(float)plug->swatch_size
-		};
-		if (CheckCollisionPointRec(m, r)) {
-			set_brush_color_by_index(plug, i);
-			return true;
-		}
-	}
-	return false;
-}
-
 static void handle_input(Plug *plug)
 {
 	plug->erase_arena.used = 0;
@@ -351,6 +457,28 @@ static void handle_input(Plug *plug)
 	Vector2 mouse_pos = GetMousePosition();
 	Vector2 mouse_2d_pos = GetScreenToWorld2D(GetMousePosition(), *plug->camera);
 	mouse_and_camera_stuff(plug->camera, &mouse_pos, &mouse_2d_pos);
+
+	if (IsKeyPressed(KEY_C) && !plug->dragging) {
+		plug->color_wheel_picker_open = !plug->color_wheel_picker_open;
+	}
+	bool is_mouse_over_rect = mouse_over_rect(plug->color_wheel_picker_btn, mouse_pos);
+	if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && is_mouse_over_rect) {
+		plug->color_wheel_picker_open = !plug->color_wheel_picker_open;
+		return;
+	}
+
+	if (plug->color_wheel_picker_open) {
+		bool over_wheel = mouse_over_circle(mouse_pos, plug->wheel_pos, plug->wheel_diam * 0.5f);
+		bool over_val   = CheckCollisionPointRec(mouse_pos, plug->color_wheel_val_slider);
+		bool over_size  = CheckCollisionPointRec(mouse_pos, plug->brush_size_slider);
+
+		handle_color_wheel_input(plug);
+		handle_size_slider_input(plug);
+
+		if ((IsMouseButtonDown(MOUSE_LEFT_BUTTON) || IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) && (over_wheel || over_val || over_size || is_mouse_over_rect)) {
+			return;
+		}
+	}
 
 	if (!plug->erasing) {
 		if (IsKeyPressed(KEY_UP))
@@ -363,38 +491,6 @@ static void handle_input(Plug *plug)
 		if (plug->brush_size > 100.0f)
 			plug->brush_size = 100.0f;
 	}
-	if (plug->erasing) {
-		if (IsKeyPressed(KEY_UP))
-			plug->eraser_radius += 1.0f;
-		if (IsKeyPressed(KEY_DOWN))
-			plug->eraser_radius -= 1.0f;
-
-		if (plug->eraser_radius < 2.0f)
-			plug->eraser_radius = 2.0f;
-		if (plug->eraser_radius > 200.0f)
-			plug->eraser_radius = 200.0f;
-	}
-
-	if (IsKeyPressed(KEY_C))
-		cycle_brush_color(plug, +1);
-
-	if (IsKeyPressed(KEY_ONE))
-		set_brush_color_by_index(plug, 0);
-	if (IsKeyPressed(KEY_TWO))
-		set_brush_color_by_index(plug, 1);
-	if (IsKeyPressed(KEY_THREE))
-		set_brush_color_by_index(plug, 2);
-	if (IsKeyPressed(KEY_FOUR))
-		set_brush_color_by_index(plug, 3);
-	if (IsKeyPressed(KEY_FIVE))
-		set_brush_color_by_index(plug, 4);
-	if (IsKeyPressed(KEY_SIX))
-		set_brush_color_by_index(plug, 5);
-	if (IsKeyPressed(KEY_SEVEN))
-		set_brush_color_by_index(plug, 6);
-	if (IsKeyPressed(KEY_EIGHT))
-		set_brush_color_by_index(plug, 7);
-
 	if (IsKeyPressed(KEY_E) && !plug->dragging) {
 		plug->erasing = !plug->erasing;
 	}
@@ -404,16 +500,8 @@ static void handle_input(Plug *plug)
 		return;
 	}
 
-	// if the clicking on the palette so it doesn't draw
-	if (handle_palette_mouse_input(plug)) {
-		return;
-	}
-
-	// do not draw over the palette
-	bool over_palette = mouse_over_palette(plug, mouse_pos);
-
 	if (!plug->dragging) {
-		if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && !over_palette) {
+		if (IsMouseButtonDown(MOUSE_LEFT_BUTTON)) {
 			plug->dragging = true;
 
 			if (!plug->erasing) {
@@ -423,16 +511,16 @@ static void handle_input(Plug *plug)
 			}
 		}
 	} else {
-		if (!over_palette) {
-			if (plug->erasing) {
-				if (batch_erase_at(plug, mouse_2d_pos, plug->eraser_radius, 64)) {
-					stroke_grid_cleanup(&plug->grid);
-				}
-			} else {
-				const brush_pt p = { .pos = mouse_2d_pos, .size = plug->brush_size, .brush_color = plug->brush_color };
-				stroke_row_add_point(&plug->points, plug->grid.tail, p);
+
+		if (plug->erasing) {
+			if (batch_erase_at(plug, mouse_2d_pos, plug->brush_size, 64)) {
+				stroke_grid_cleanup(&plug->grid);
 			}
+		} else {
+			const brush_pt p = { .pos = mouse_2d_pos, .size = plug->brush_size, .brush_color = plug->brush_color };
+			stroke_row_add_point(&plug->points, plug->grid.tail, p);
 		}
+
 
 		if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
 			plug->dragging = false;
@@ -461,13 +549,18 @@ void plug_update(Plug *plug)
 		{
 			draw_all_brushes(&plug->grid, &plug->points);
 			if (plug->erasing) {
-				DrawCircleLinesV(GetScreenToWorld2D(GetMousePosition(), *plug->camera), plug->eraser_radius, RAYWHITE);
+				DrawCircleLinesV(GetScreenToWorld2D(GetMousePosition(), *plug->camera), plug->brush_size, RAYWHITE);
 			} else {
 				DrawCircleLinesV(GetScreenToWorld2D(GetMousePosition(), *plug->camera), plug->brush_size, plug->brush_color);
 			}
 		}
 		EndMode2D();
-		draw_palette_ui(plug);
+		draw_picker_button(plug);
+		if (plug->color_wheel_picker_open) {
+			draw_color_wheel_UI(plug);
+			draw_size_slider_UI(plug);
+		}
+
 	}
 	EndDrawing();
 }

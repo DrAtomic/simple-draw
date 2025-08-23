@@ -1,6 +1,7 @@
 #ifndef PLUG_H
 #define PLUG_H
 
+#include <stdbool.h>
 #include <stdint.h>
 #include "arena.h"
 #include "raylib.h"
@@ -40,7 +41,6 @@ typedef struct {
 	Camera2D *camera;
 	bool dragging;
 	bool erasing;
-	float eraser_radius;
 
 	stroke_grid grid;
 	point_buf points;
@@ -48,16 +48,25 @@ typedef struct {
 	Color brush_color;
 	float brush_size;
 
-	size_t color_index;
-	Color palette[8];
-	size_t palette_count;
-	size_t swatch_size;
-	size_t swatch_pad;
-	size_t swatch_x0;
-	size_t swatch_y0;
+	Rectangle brush_size_slider;
+	float brush_min;
+	float brush_max;
 
 	void *permanent_storage;
 	size_t permanent_storage_size;
+
+	Texture2D wheel_tex;
+	size_t wheel_diam;
+	Vector2 wheel_pos;
+
+	float color_wheel_hue;
+	float color_wheel_sat;
+	float color_wheel_val;
+	float color_wheel_alpha;
+
+	Rectangle color_wheel_val_slider;
+	bool color_wheel_picker_open;
+	Rectangle color_wheel_picker_btn;
 } Plug;
 
 typedef void (*plug_init_t) (Plug *plug);
