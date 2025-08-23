@@ -39,7 +39,7 @@ static void draw_all_brushes(stroke_list *head)
 	}
 }
 
-static void stroke_list_push(Arena *a, stroke_list *l, brush b)
+static void stroke_list_push(Arena *a, stroke_list *l, const brush b)
 {
 	brush_node *node = arena_push_struct(a, brush_node);
 
@@ -82,7 +82,7 @@ static void handle_input(Plug *plug)
 			}
 		}
 	} else {
-		brush b = { .pos = mouse_2d_pos, .size = 2, .brush_color = RED };
+		const brush b = { .pos = mouse_2d_pos, .size = 2, .brush_color = RED };
 		stroke_list_push(&plug->stroke_arena, plug->grid.tail, b);
 
 		if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
