@@ -1,9 +1,9 @@
 #ifndef ARENA_H
 #define ARENA_H
 
-#include <stddef.h>
 #include <assert.h>
-#include <string.h>
+#include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 struct Arena {

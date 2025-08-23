@@ -3,8 +3,8 @@
 #include "arena.h"
 #include "plug.h"
 #include "raylib.h"
-#include "raymath.h"
 #include "raylib_helpers.c"
+#include "raymath.h"
 
 void plug_init(Plug *plug)
 {

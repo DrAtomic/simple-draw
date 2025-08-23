@@ -1,14 +1,14 @@
-#include <sys/mman.h>
-#include <errno.h>
 #include <dlfcn.h>
-#include <sys/stat.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
-#include "raylib.h"
 #include "plug.h"
+#include "raylib.h"
 
 const char *lib_plug_file_name = "libplug.so";
 void *libplug;
