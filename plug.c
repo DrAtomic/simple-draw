@@ -22,6 +22,7 @@ void plug_init(Plug *plug)
 	initialize_arena(&plug->stroke_arena, plug->permanent_storage_size - sizeof(*plug), plug->permanent_storage + sizeof(*plug));
 
 	plug->eraser_radius = 8.0f;
+	plug->brush_size = 2.0f;
 	plug->camera = arena_push_struct(&plug->world_arena, Camera2D);
 	plug->camera->zoom = 1.0f;
 	points_init(&plug->stroke_arena, &plug->points, 1000000);
@@ -274,6 +275,29 @@ static void handle_input(Plug *plug)
 	Vector2 mouse_2d_pos = GetScreenToWorld2D(GetMousePosition(), *plug->camera);
 	mouse_and_camera_stuff(plug->camera, &mouse_pos, &mouse_2d_pos);
 
+	if (!plug->erasing) {
+		if (IsKeyPressed(KEY_UP))
+			plug->brush_size += 1.0f;
+		if (IsKeyPressed(KEY_DOWN))
+			plug->brush_size -= 1.0f;
+
+		if (plug->brush_size < 1.0f)
+			plug->brush_size = 1.0f;
+		if (plug->brush_size > 100.0f)
+			plug->brush_size = 100.0f;
+	}
+	if (plug->erasing) {
+		if (IsKeyPressed(KEY_UP))
+			plug->eraser_radius += 1.0f;
+		if (IsKeyPressed(KEY_DOWN))
+			plug->eraser_radius -= 1.0f;
+
+		if (plug->eraser_radius < 2.0f)
+			plug->eraser_radius = 2.0f;
+		if (plug->eraser_radius > 200.0f)
+			plug->eraser_radius = 200.0f;
+	}
+
 	if (IsKeyPressed(KEY_C))
 		cycle_brush_color(plug, +1);
 
@@ -328,7 +352,7 @@ static void handle_input(Plug *plug)
 					stroke_grid_cleanup(&plug->grid);
 				}
 			} else {
-				const brush_pt p = { .pos = mouse_2d_pos, .size = 2.0f, .brush_color = plug->brush_color };
+				const brush_pt p = { .pos = mouse_2d_pos, .size = plug->brush_size, .brush_color = plug->brush_color };
 				stroke_row_add_point(&plug->points, plug->grid.tail, p);
 			}
 		}
@@ -359,8 +383,11 @@ void plug_update(Plug *plug)
 		BeginMode2D(*plug->camera);
 		{
 			draw_all_brushes(&plug->grid, &plug->points);
-			if (plug->erasing)
+			if (plug->erasing) {
 				DrawCircleLinesV(GetScreenToWorld2D(GetMousePosition(), *plug->camera), plug->eraser_radius, RAYWHITE);
+			} else {
+				DrawCircleLinesV(GetScreenToWorld2D(GetMousePosition(), *plug->camera), plug->brush_size, plug->brush_color);
+			}
 		}
 		EndMode2D();
 		draw_palette_ui(plug);

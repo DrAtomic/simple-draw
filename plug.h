@@ -45,6 +45,8 @@ typedef struct {
 	point_buf points;
 
 	Color brush_color;
+	float brush_size;
+
 	size_t color_index;
 	Color palette[8];
 	size_t palette_count;
