@@ -549,9 +549,9 @@ void plug_update(Plug *plug)
 		{
 			draw_all_brushes(&plug->grid, &plug->points);
 			if (plug->erasing) {
-				DrawCircleLinesV(GetScreenToWorld2D(GetMousePosition(), *plug->camera), plug->brush_size, RAYWHITE);
+				DrawCircleLinesV(GetScreenToWorld2D(GetMousePosition(), *plug->camera), plug->brush_size / 2, RAYWHITE);
 			} else {
-				DrawCircleLinesV(GetScreenToWorld2D(GetMousePosition(), *plug->camera), plug->brush_size, plug->brush_color);
+				DrawCircleLinesV(GetScreenToWorld2D(GetMousePosition(), *plug->camera), plug->brush_size / 2, plug->brush_color);
 			}
 		}
 		EndMode2D();
